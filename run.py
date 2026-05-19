@@ -136,11 +136,15 @@ def scan_event_directories() -> dict:
                 data = yaml.safe_load((entry / 'event.yaml').read_text(encoding='utf-8')) or {}
                 title = str(data.get('title', entry.name))
                 content = str(data.get('content', ''))
+                image_path = str(data.get('image_path', '')).strip()
+                if image_path:
+                    image_path = f'/galleries/{gallery_dir.name}/{entry.name}/{image_path.lstrip('/')}'
                 path = f'galleries/{gallery_dir.name}/{entry.name}/index.html'
                 event_list.append({
                     'name': entry.name,
                     'title': title,
                     'content': content,
+                    'image_path': image_path,
                     'path': path,
                     'src': entry,
                 })
@@ -234,11 +238,19 @@ def main() -> None:
                 shutil.rmtree(dest_dir)
             shutil.copytree(ev['src'], dest_dir, ignore=shutil.ignore_patterns('event.yaml'))
 
+            # Add cover image if provided in event.yaml
+            cover_html = ''
+            if ev.get('image_path'):
+                cover_html = (
+                    f'<div class="gallery-cover"><img src="{ev["image_path"]}" '
+                    f'alt="{ev["title"]}"></div>\n'
+                )
+
             # Collect image files in the event directory and render thumbnails
             image_exts = ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg')
             images = [p.name for p in sorted(dest_dir.iterdir()) if p.is_file() and p.suffix.lower() in image_exts]
 
-            content_with_images = str(ev['content'])
+            content_with_images = cover_html + str(ev['content'])
             if images:
                 imgs_html = '<div class="event-gallery">' + ''.join(
                     f'<a href="{name}"><img src="{name}" alt="{ev["title"]} - {i+1}" class="event-thumb"></a>'
@@ -261,7 +273,7 @@ def main() -> None:
         gallery_data = next((g for g in gallery_pages if g['nav_path'] == f'galleries/{gallery_name}'), None)
         title = gallery_data['title'] if gallery_data else gallery_name
         intro = gallery_data['content'] if gallery_data else ''
-        image_html = '<span>QQQQQQ</span>'
+        image_html = ''
         if gallery_data and gallery_data.get('image_path'):
             image_html = (
                 f'<div class="gallery-cover"><img src="{gallery_data["image_path"]}" '
