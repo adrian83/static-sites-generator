@@ -87,6 +87,27 @@ document.addEventListener('DOMContentLoaded', function () {
                     openLightbox(idx);
                 });
             });
+
+            // Detect image orientation and add portrait/landscape classes
+            document.querySelectorAll('.event-gallery img').forEach((img) => {
+                if (img.complete) {
+                    setOrientationClass(img);
+                } else {
+                    img.addEventListener('load', () => setOrientationClass(img));
+                }
+            });
+
+            function setOrientationClass(img) {
+                const wrapper = img.closest('.event-gallery') || img.parentElement;
+                if (!wrapper) return;
+                if (img.naturalHeight > img.naturalWidth) {
+                    img.classList.add('portrait');
+                    img.classList.remove('landscape');
+                } else {
+                    img.classList.add('landscape');
+                    img.classList.remove('portrait');
+                }
+            }
         });
 
         // Controls
