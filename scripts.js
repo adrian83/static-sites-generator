@@ -37,6 +37,18 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    // Tag cloud toggle
+    const tagCountsToggle = document.querySelector('.tag-counts-toggle');
+    const tagCountsContent = document.querySelector('.tag-counts-content');
+    if (tagCountsToggle && tagCountsContent) {
+        tagCountsToggle.addEventListener('click', (event) => {
+            event.stopPropagation();
+            tagCountsContent.classList.toggle('open');
+            const expanded = tagCountsContent.classList.contains('open');
+            tagCountsToggle.setAttribute('aria-expanded', expanded);
+        });
+    }
+
     // Lightweight lightbox for event galleries
     const lightbox = document.getElementById('lightbox');
     if (lightbox) {

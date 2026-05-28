@@ -114,7 +114,16 @@ def build_tag_counts(event_list: list[dict], gallery_name: str | None = None) ->
             f'<li class="tag-count-item"><a href="/tags_gallery/{slug}/">{tag} <span>({count})</span></a></li>'
         )
 
-    return '<div class="tag-counts"><h2>Tags</h2><ul>' + ''.join(items) + '</ul></div>'
+    content = '<ul>' + ''.join(items) + '</ul>'
+    return (
+        '<div class="tag-counts">'
+        '<button class="tag-counts-toggle" type="button" aria-expanded="false">📍 Tags</button>'
+        '<div class="tag-counts-content">'
+        '<h2>Tags</h2>'
+        f'{content}'
+        '</div>'
+        '</div>'
+    )
 
 
 def build_event_card_grid(events: list[dict]) -> str:
