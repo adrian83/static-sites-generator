@@ -187,10 +187,6 @@ def generate_events(event_template: str, gallery_template: str, gallery_pages: l
             page_nav_html = build_nav(pages_data, current_path, 'Pages')
             gallery_nav_html = build_nav(gallery_pages, current_path, 'Galleries')
 
-            # Add a direct "Back to gallery" link in the header for event pages
-            gallery_link = f'<a class="nav-link" href="../index.html">Back to {gallery_name}</a>'
-            gallery_nav_html = gallery_link + gallery_nav_html
-
             output_path = PUBLIC_DIR / ev['path']
             dest_dir = output_path.parent
             if dest_dir.exists():
@@ -329,6 +325,11 @@ def generate_tag_pages(gallery_template: str, pages_data: list[dict], gallery_pa
             for tag in ev.get('tags', []):
                 tags.setdefault(tag, []).append(ev)
 
+    tags_dir = PUBLIC_DIR / 'tags_gallery'
+    if tags_dir.exists():
+        shutil.rmtree(tags_dir)
+
+    all_events = [ev for gallery_events in events_map.values() for ev in gallery_events]
     for tag, events in sorted(tags.items(), key=lambda item: item[0]):
         slug = slugify(tag)
         output_path = PUBLIC_DIR / f'tags_gallery/{slug}/index.html'
@@ -336,13 +337,28 @@ def generate_tag_pages(gallery_template: str, pages_data: list[dict], gallery_pa
 
         page_nav_html = build_nav(pages_data, f'tags_gallery/{slug}', 'Pages')
         gallery_nav_html = build_nav(gallery_pages, f'tags_gallery/{slug}', 'Galleries')
+
+        tag_page_cover = ''
+        if events:
+            sorted_events = sorted(events, key=lambda item: item.get('date_obj'), reverse=True)
+            for ev in sorted_events:
+                if ev.get('image_path'):
+                    image_name = Path(ev['image_path']).name
+                    main_gallery_path = f'/galleries/{ev["gallery"]}/{ev["name"]}/thumbs/main-{image_name}'
+                    tag_page_cover = (
+                        f'<div class="gallery-cover"><img src="{main_gallery_path}" '
+                        f'alt="{ev["title"]}"></div>\n'
+                    )
+                    break
+
         # Place tag events into a gallery-style card grid in the main content area
         tag_page_html = render_page(
             gallery_template,
             title=tag,
-            content=build_event_card_grid(events),
+            content=tag_page_cover + build_event_card_grid(events),
             page_nav=page_nav_html,
             gallery_nav=gallery_nav_html,
+            tag_counts=build_tag_counts(all_events),
             page_links='',
         )
         tag_page_html = adjust_asset_paths(tag_page_html, output_path)
