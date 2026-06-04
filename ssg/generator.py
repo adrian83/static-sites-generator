@@ -6,6 +6,11 @@ except Exception:  # Pillow may not be installed yet
     Image = None
     ImageOps = None
 from pathlib import Path
+import html
+try:
+    from markdown import markdown as _md_to_html
+except Exception:
+    _md_to_html = None
 
 from .config import (
     BASE_DIR, PUBLIC_DIR, TEMPLATE_FILE, TEMPLATE_GALLERY_FILE, TEMPLATE_EVENT_FILE, STATIC_ASSETS, PAGES_DIR
@@ -32,7 +37,7 @@ def generate_pages(page_template: str, gallery_template: str, pages_data: list[d
         current_path = str(page_data.get('nav_path', page_data['path'])).lstrip('/')
         page_nav_html = build_nav(pages_data, current_path, 'Pages')
         gallery_nav_html = build_nav(gallery_pages, current_path, 'Galleries')
-        content = str(page_data['content'])
+        content = render_markdown(page_data.get('content', ''))
 
         output_text = render_page(
             page_template,
@@ -70,6 +75,23 @@ def create_main_image(src_path: Path, dest_path: Path, target_width: int = 600, 
 
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         cropped.save(dest_path, format='JPEG', quality=85)
+
+
+def render_markdown(text: str) -> str:
+    """Convert markdown text to HTML. If Markdown isn't installed, fall back to simple paragraphs."""
+    if text is None:
+        return ''
+    s = str(text)
+    if _md_to_html is not None:
+        try:
+            return _md_to_html(s, extensions=['extra', 'sane_lists'])
+        except Exception:
+            pass
+
+    # Fallback: escape and convert paragraphs/linebreaks
+    escaped = html.escape(s)
+    paras = [p.strip() for p in escaped.split('\n\n') if p.strip()]
+    return ''.join(f'<p>{p.replace('\n', '<br>')}</p>' for p in paras)
 
 
 def create_thumbnail(src_path: Path, dest_path: Path, target_height: int = 200) -> None:
@@ -215,7 +237,7 @@ def generate_events(event_template: str, gallery_template: str, gallery_pages: l
             image_exts = ('.jpg', '.jpeg')
             originals = [p.name for p in sorted(dest_dir.iterdir()) if p.is_file() and p.suffix.lower() in image_exts and p.parent == dest_dir]
 
-            content_with_images = cover_html + str(ev['content'])
+            content_with_images = cover_html + render_markdown(ev.get('content', ''))
             if originals:
                 imgs_html = '<div class="event-gallery">'
                 for i, orig in enumerate(originals):
@@ -244,7 +266,7 @@ def generate_events(event_template: str, gallery_template: str, gallery_pages: l
         # Create gallery index file
         gallery_data = next((g for g in gallery_pages if g['nav_path'] == f'galleries/{gallery_name}'), None)
         title = gallery_data['title'] if gallery_data else gallery_name
-        intro = gallery_data['content'] if gallery_data else ''
+        intro = render_markdown(gallery_data.get('content', '')) if gallery_data else ''
         image_html = ''
         if gallery_data and gallery_data.get('image_src'):
             gallery_image_src = gallery_data['image_src']
