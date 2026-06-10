@@ -1,4 +1,5 @@
 """Main generator logic for creating static site."""
+import random
 import shutil
 try:
     from PIL import Image, ImageOps
@@ -177,6 +178,45 @@ def build_event_card_grid(events: list[dict]) -> str:
     return '<div class="event-card-grid">' + ''.join(items) + '</div>'
 
 
+def build_related_events_section(events: list[dict], current_event_name: str) -> str:
+    """Build a section with 2 randomly selected related events and a separator."""
+    # Filter out current event
+    other_events = [ev for ev in events if ev.get('name') != current_event_name]
+    
+    if len(other_events) < 2:
+        return ''
+    
+    # Randomly select 2 events
+    selected_events = random.sample(other_events, min(2, len(other_events)))
+    
+    items = []
+    for ev in selected_events:
+        href = f'../{ev["name"]}/index.html'
+        main_img_html = ''
+        if ev.get('image_path'):
+            image_name = Path(ev['image_path']).name
+            thumb_path = f'../{ev["name"]}/thumbs/main-{image_name}'
+            main_img_html = (
+                f'<a class="event-card-image-link" href="{href}">'
+                f'<img src="{thumb_path}" alt="{ev["title"]}" class="event-card-image"></a>'
+            )
+        
+        event_item_html = (
+            '<div class="event-card">'
+            f'{main_img_html}'
+            '<div class="event-card-body">'
+            f'<h2 class="event-card-title"><a href="{href}">{ev["title"]}</a></h2>'
+            f'<p class="event-card-date">{ev["date"]}</p>'
+            '</div></div>'
+        )
+        items.append(event_item_html)
+    
+    separator = '<hr class="related-events-separator" style="margin: 3rem 0; border: none; border-top: 2px solid #ccc;">'
+    related_section = '<div class="related-events" style="margin-top: 2rem;"><h3 style="text-align: center; margin-bottom: 1.5rem;">More from this gallery</h3><div class="event-card-grid">' + ''.join(items) + '</div></div>'
+    
+    return separator + '\n' + related_section
+
+
 def generate_events(event_template: str, gallery_template: str, gallery_pages: list[dict], 
                     pages_data: list[dict], events_map: dict) -> None:
     """Generate event pages and gallery indices."""
@@ -245,6 +285,11 @@ def generate_events(event_template: str, gallery_template: str, gallery_pages: l
                     )
                 imgs_html += '</div>'
                 content_with_images += '\n\n' + imgs_html
+
+            # Add related events section
+            related_events_html = build_related_events_section(events, ev.get('name'))
+            if related_events_html:
+                content_with_images += '\n\n' + related_events_html
 
             tag_counts_html = build_tag_counts(events, gallery_name)
             event_html = render_page(
