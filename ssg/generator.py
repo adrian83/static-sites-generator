@@ -1,6 +1,8 @@
 """Main generator logic for creating static site."""
 import random
 import shutil
+import os
+import concurrent.futures
 try:
     from PIL import Image, ImageOps
 except Exception:  # Pillow may not be installed yet
@@ -222,7 +224,9 @@ def generate_events(event_template: str, gallery_template: str, gallery_pages: l
     """Generate event pages and gallery indices."""
     for gallery_name, events in events_map.items():
         events.sort(key=lambda ev: ev.get('date_obj'), reverse=True)
-        for ev in events:
+
+        def _process_event(ev: dict) -> None:
+            """Process a single event: copy files, optionally scale originals, create thumbs and write event HTML."""
             current_path = str(ev['path']).lstrip('/')
             page_nav_html = build_nav(pages_data, current_path, 'Pages')
             gallery_nav_html = build_nav(gallery_pages, current_path, 'Galleries')
@@ -234,12 +238,12 @@ def generate_events(event_template: str, gallery_template: str, gallery_pages: l
             shutil.copytree(ev['src'], dest_dir, ignore=shutil.ignore_patterns('event.yaml'))
 
             # Optionally scale original images in the event directory before creating thumbs
-            image_exts = ('.jpg', '.jpeg')
+            image_exts_local = ('.jpg', '.jpeg')
             if scale_percent != 100:
                 if Image is None:
                     raise RuntimeError('Pillow is required to scale images. Please install Pillow to use --scale')
                 for p in sorted(dest_dir.iterdir()):
-                    if p.is_file() and p.suffix.lower() in image_exts and p.parent == dest_dir:
+                    if p.is_file() and p.suffix.lower() in image_exts_local and p.parent == dest_dir:
                         try:
                             with Image.open(p) as img:
                                 if ImageOps is not None:
@@ -271,7 +275,7 @@ def generate_events(event_template: str, gallery_template: str, gallery_pages: l
                         print(f'Warning: could not create main image for {main_image_src}: {e}')
 
             for p in sorted(dest_dir.iterdir()):
-                if p.is_file() and p.suffix.lower() in ('.jpg', '.jpeg') and p.parent == dest_dir:
+                if p.is_file() and p.suffix.lower() in image_exts_local and p.parent == dest_dir:
                     try:
                         thumb_path = thumbs_dir / p.name
                         create_thumbnail(p, thumb_path, target_height=200)
@@ -288,8 +292,7 @@ def generate_events(event_template: str, gallery_template: str, gallery_pages: l
                 )
 
             # Collect original images and use scaled versions for display (link to original)
-            image_exts = ('.jpg', '.jpeg')
-            originals = [p.name for p in sorted(dest_dir.iterdir()) if p.is_file() and p.suffix.lower() in image_exts and p.parent == dest_dir]
+            originals = [p.name for p in sorted(dest_dir.iterdir()) if p.is_file() and p.suffix.lower() in image_exts_local and p.parent == dest_dir]
 
             content_with_images = cover_html + render_markdown(ev.get('content', ''))
             if originals:
@@ -321,6 +324,17 @@ def generate_events(event_template: str, gallery_template: str, gallery_pages: l
             event_html = adjust_asset_paths(event_html, output_path)
             output_path.write_text(event_html, encoding='utf-8')
             print(f'Copied and generated event {output_path}')
+
+        # Process events in parallel per gallery
+        max_workers = min(32, (os.cpu_count() or 1) + 2)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as exc:
+            futures = [exc.submit(_process_event, ev) for ev in events]
+            for fut in concurrent.futures.as_completed(futures):
+                # propagate exceptions if any
+                try:
+                    fut.result()
+                except Exception as e:
+                    print(f'Error processing event: {e}')
 
         # Create gallery index file
         gallery_data = next((g for g in gallery_pages if g['nav_path'] == f'galleries/{gallery_name}'), None)
