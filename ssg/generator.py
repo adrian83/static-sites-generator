@@ -218,7 +218,7 @@ def build_related_events_section(events: list[dict], current_event_name: str) ->
 
 
 def generate_events(event_template: str, gallery_template: str, gallery_pages: list[dict], 
-                    pages_data: list[dict], events_map: dict) -> None:
+                    pages_data: list[dict], events_map: dict, scale_percent: int = 100) -> None:
     """Generate event pages and gallery indices."""
     for gallery_name, events in events_map.items():
         events.sort(key=lambda ev: ev.get('date_obj'), reverse=True)
@@ -233,9 +233,27 @@ def generate_events(event_template: str, gallery_template: str, gallery_pages: l
                 shutil.rmtree(dest_dir)
             shutil.copytree(ev['src'], dest_dir, ignore=shutil.ignore_patterns('event.yaml'))
 
+            # Optionally scale original images in the event directory before creating thumbs
+            image_exts = ('.jpg', '.jpeg')
+            if scale_percent != 100:
+                if Image is None:
+                    raise RuntimeError('Pillow is required to scale images. Please install Pillow to use --scale')
+                for p in sorted(dest_dir.iterdir()):
+                    if p.is_file() and p.suffix.lower() in image_exts and p.parent == dest_dir:
+                        try:
+                            with Image.open(p) as img:
+                                if ImageOps is not None:
+                                    img = ImageOps.exif_transpose(img)
+                                new_w = max(1, int(img.width * scale_percent / 100))
+                                new_h = max(1, int(img.height * scale_percent / 100))
+                                resized = img.resize((new_w, new_h), Image.LANCZOS)
+                                resized.save(p, format='JPEG', quality=85)
+                        except Exception as e:
+                            print(f'Warning: could not scale image {p}: {e}')
+
             # Create thumbnails and main image for the event
             if Image is None:
-                raise RuntimeError('Pillow is required to scale images. Please install via requirements.txt in a virtualenv')
+                raise RuntimeError('Pillow is required to scale images. Please install via requirements.txt')
 
             thumbs_dir = dest_dir / 'thumbs'
             thumbs_dir.mkdir(parents=True, exist_ok=True)
@@ -411,7 +429,7 @@ def generate_tag_pages(gallery_template: str, pages_data: list[dict], gallery_pa
         print(f'Generated tag page {output_path}')
 
 
-def build() -> None:
+def build(scale_percent: int = 100) -> None:
     """Build the entire static site."""
     # Load templates
     page_template = load_template(TEMPLATE_FILE)
@@ -435,8 +453,8 @@ def build() -> None:
     # Generate pages
     generate_pages(page_template, gallery_template, pages_data, gallery_pages, events_map)
 
-    # Generate events and gallery indices
-    generate_events(event_template, gallery_template, gallery_pages, pages_data, events_map)
+    # Generate events and gallery indices (pass scale_percent to optionally scale originals)
+    generate_events(event_template, gallery_template, gallery_pages, pages_data, events_map, scale_percent)
 
     # Generate tag pages for all event tags
     generate_tag_pages(gallery_template, pages_data, gallery_pages, events_map)
