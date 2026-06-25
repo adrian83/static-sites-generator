@@ -28,10 +28,19 @@ def load_page_data(page_file: Path) -> dict:
         if nav_path == '.':
             nav_path = ''
 
+    if 'index' not in data:
+        raise ValueError(f"Missing 'index' field in {page_file}")
+
+    try:
+        index_value = int(data['index'])
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"The 'index' field in {page_file} must be an integer.") from exc
+
     return {
         **data,
         'path': page_path,
         'nav_path': nav_path,
+        'index': index_value,
     }
 
 
@@ -48,6 +57,14 @@ def load_gallery_data(gallery_dir: Path) -> dict:
         if required not in data:
             raise ValueError(f"Missing '{required}' field in {page_file}")
 
+    if 'index' not in data:
+        raise ValueError(f"Missing 'index' field in {page_file}")
+
+    try:
+        index_value = int(data['index'])
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"The 'index' field in {page_file} must be an integer.") from exc
+
     image_path = str(data.get('image_path', '')).strip()
     image_src = None
     if image_path:
@@ -61,6 +78,7 @@ def load_gallery_data(gallery_dir: Path) -> dict:
         'content': str(data['content']),
         'image_path': image_path,
         'image_src': image_src,
+        'index': index_value,
     }
 
 

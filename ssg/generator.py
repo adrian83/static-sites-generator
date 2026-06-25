@@ -457,7 +457,9 @@ def build(scale_percent: int = 100) -> None:
     # Load data
     page_files = sorted(PAGES_DIR.glob('*.yaml'))
     pages_data = [load_page_data(page_file) for page_file in page_files]
+    pages_data.sort(key=lambda page: (page.get('index', 0), str(page.get('title', ''))))
     gallery_pages = scan_gallery_pages()
+    gallery_pages.sort(key=lambda page: (page.get('index', 0), str(page.get('title', ''))))
     events_map = scan_event_directories()
 
     if not pages_data and not gallery_pages and not events_map:

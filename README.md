@@ -1,13 +1,16 @@
 # Static Sites Generator
 
-This project is a minimal static site generator for a gallery website. It reads YAML files for pages, galleries, and events, applies HTML templates, generates a `public/` static site, and can serve the generated output locally.
+A minimal static site generator for a gallery website.
+
+This project reads YAML content files for top-level pages, gallery index pages, and events, then renders them through HTML templates into a static `public/` directory. It also copies CSS/JS assets and can serve the generated site locally for preview.
 
 ## Goal
 
-- Generate static HTML pages from YAML content and templates
-- Support gallery overview pages and event pages with image thumbnails
-- Allow markdown in `content` fields so text renders as HTML
-- Support a simple local server for previewing the generated site
+- Generate static HTML pages from YAML data
+- Support top-level pages, gallery overview pages, and event pages
+- Render markdown in `content` fields to HTML
+- Copy static assets into `public/`
+- Preview generated output with a local HTTP server
 
 ## Requirements
 
@@ -19,31 +22,37 @@ pip install -r requirements.txt
 
 ## Run the generator
 
-Generate the static site into `public/` using:
+Generate the static site into `public/`:
 
 ```bash
 python run.py
 ```
 
-This copies static assets, processes templates, and writes HTML into `public/`.
+Optional image scaling can be enabled with `--scale`:
+
+```bash
+python run.py --scale 50
+```
+
+This will process YAML files, render templates, copy assets, and write the output under `public/`.
 
 ## Preview the results
 
-Use the built-in local server to preview the generated site:
+Serve the generated site locally using:
 
 ```bash
 python server.py
 ```
 
-Then open:
+Then open in your browser:
 
-```
+```text
 http://0.0.0.0:8000
 ```
 
 ## Directory structure
 
-The expected layout is:
+The project expects the following layout:
 
 ```text
 .
@@ -81,15 +90,21 @@ The expected layout is:
 └── requirements.txt
 ```
 
+- `pages/` contains top-level YAML pages.
+- `galleries/` contains gallery folders, each with a `gallery.yaml` and event subfolders.
+- `public/` is the generated static website output.
+- `template_*.html` files are HTML templates used during generation.
+
 ## YAML file contents
 
 ### `pages/*.yaml`
 
-Each top-level page must contain:
+Each page YAML file must include:
 
-- `path`: output path for the page, e.g. `index.html` or `about/index.html`
-- `title`: page title shown in the page header and `<title>` tag
+- `path`: output path for the page, such as `index.html` or `about/index.html`
+- `title`: page title used in navigation and HTML
 - `content`: markdown content for the page body
+- `index`: integer sort order for page navigation
 
 Example:
 
@@ -101,6 +116,7 @@ content: |
   
   - Explore galleries
   - Browse events
+index: 1
 ```
 
 ### `galleries/<gallery>/gallery.yaml`
@@ -109,6 +125,7 @@ Each gallery directory must contain a `gallery.yaml` with:
 
 - `title`: gallery title
 - `content`: markdown intro text for the gallery page
+- `index`: integer sort order for gallery navigation
 - `image_path` (optional): relative path to a gallery cover image inside the gallery directory
 
 Example:
@@ -117,6 +134,7 @@ Example:
 title: Sea
 content: |
   A gallery of seaside photos and coastal views.
+index: 1
 image_path: cover.jpg
 ```
 
@@ -125,10 +143,10 @@ image_path: cover.jpg
 Each event directory must contain `event.yaml` with:
 
 - `title`: event title
-- `content`: markdown text for the event page body
+- `content`: markdown text for the event body
 - `date`: event date in `YYYY-MM-DD` format
 - `tags`: list of tags for the event
-- `image_path` (optional): image file name used as the main event cover image
+- `image_path` (optional): relative image filename inside the event folder
 
 Example:
 
@@ -150,18 +168,19 @@ image_path: IMG_20240601_123456.jpg
 
 ## Markdown support
 
-The `content` field in all YAML files may contain markdown. It is rendered to HTML when the site is generated.
+The `content` field in all YAML files is rendered as HTML. Markdown syntax is supported when the `markdown` Python package is installed.
 
 ## Templates
 
-- `template_page.html`: used for top-level pages
-- `template_gallery.html`: used for gallery index pages and tag pages
-- `template_event.html`: used for event pages
+- `template_page.html` is used for top-level page rendering.
+- `template_gallery.html` is used for gallery overview pages and tag gallery pages.
+- `template_event.html` is used for event pages.
 
-These templates use simple placeholders like `{{title}}`, `{{content}}`, `{{page_nav}}`, `{{gallery_nav}}`, and `{{tag_counts}}`.
+These templates should include placeholders such as `{{title}}`, `{{content}}`, `{{page_nav}}`, `{{gallery_nav}}`, and `{{tag_counts}}`.
 
 ## Notes
 
-- Place image files alongside `event.yaml` inside each event directory.
-- The generator currently supports `.jpg` and `.jpeg` event images for thumbnails.
-- The `public/` folder is overwritten by the generator output.
+- `public/` is generated by `run.py` and may be overwritten.
+- Place image files next to `event.yaml` inside each event folder.
+- Event thumbnails and gallery image URLs are generated from `image_path` values.
+- `run.py` is the generator entry point; `server.py` serves the generated `public/` directory.
